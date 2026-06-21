@@ -30,6 +30,15 @@ export const TopicExplanationSchema = z.object({
   keyTakeaways: z.array(z.string()).describe("3-5 high-yield key takeaways that are critical for exams or interviews"),
 });
 
+export const FlashcardItemSchema = z.object({
+  front: z.string().describe("A concise question or term to trigger active recall (e.g. 'What is the speed of light?')"),
+  back: z.string().describe("A clear, concise answer, explanation, or definition (e.g. 'Approximately 299,792,458 meters per second (c).')"),
+});
+
+export const FlashcardListSchema = z.object({
+  flashcards: z.array(FlashcardItemSchema).describe("A list of high-quality active recall flashcards"),
+});
+
 // ==========================================
 // System Prompts & Prompt Templates
 // ==========================================
@@ -84,6 +93,13 @@ You are a world-class educator who specializes in breaking down complex topics.
 Explain the requested topic in a structured JSON response, providing a simple beginner explanation, a detailed technical breakdown, a real-world analogy, and key takeaways.
 Use clear, easy-to-understand language while maintaining technical accuracy.
 `.trim(),
+
+  flashcardGenerator: `
+You are an expert academic tutor.
+Your task is to generate high-yield, active-recall flashcards on a requested topic or concept.
+Each flashcard must contain a front (a clear, concise question or term) and a back (a concise, accurate, and easy-to-understand explanation or answer).
+Avoid double-barreled questions. Keep cards focused on a single concept.
+`.trim(),
 };
 
 // ==========================================
@@ -128,5 +144,10 @@ ${sourceText}
   explainTopic: (topic: string, context?: string) => `
 Please explain the topic: "${topic}"
 ${context ? `Use the following context to enrich the explanation:\n${context}` : ""}
+`.trim(),
+
+  generateFlashcards: (topic: string, count = 5) => `
+Please generate ${count} high-yield flashcards for the topic: "${topic}".
+Ensure they are optimal for spaced repetition and active recall.
 `.trim(),
 };

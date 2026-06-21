@@ -1,5 +1,5 @@
 import { streamTextWithFallback, generateObjectWithFallback } from "./fallback";
-import { SYSTEM_PROMPTS, promptTemplates, FormulaExtractionSchema, TopicExplanationSchema } from "./prompts";
+import { SYSTEM_PROMPTS, promptTemplates, FormulaExtractionSchema, TopicExplanationSchema, FlashcardListSchema } from "./prompts";
 import { db } from "../db";
 import { aiGenerations } from "../db/schema";
 import { z } from "zod";
@@ -147,4 +147,32 @@ export async function explainTopic(
   }
 
   return result.object;
+}
+
+/**
+ * Generate structured Flashcards for a given topic
+ */
+export async function generateFlashcards(
+  topic: string,
+  options: { userId: string; count?: number; onModelChange?: (modelId: string) => void }
+) {
+  const count = options.count ?? 5;
+  const result = await generateObjectWithFallback<z.infer<typeof FlashcardListSchema>>(
+    {
+      system: SYSTEM_PROMPTS.flashcardGenerator,
+      prompt: promptTemplates.generateFlashcards(topic, count),
+      schema: FlashcardListSchema,
+      temperature: 0.6,
+    },
+    {
+      onModelChange: options.onModelChange,
+    }
+  );
+
+  if (result.usage) {
+    const totalTokens = (result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0);
+    await logAIGeneration(options.userId, "flashcard", totalTokens);
+  }
+
+  return result.object.flashcards;
 }

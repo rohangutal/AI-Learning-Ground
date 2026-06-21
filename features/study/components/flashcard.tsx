@@ -8,15 +8,28 @@ interface FlashcardProps {
   front: string;
   back: string;
   className?: string;
+  flipped?: boolean;
+  onFlip?: (flipped: boolean) => void;
 }
 
-export function Flashcard({ front, back, className }: FlashcardProps) {
-  const [isFlipped, setIsFlipped] = useState(false);
+export function Flashcard({ front, back, className, flipped, onFlip }: FlashcardProps) {
+  const [localFlipped, setLocalFlipped] = useState(false);
+
+  const isFlipped = flipped !== undefined ? flipped : localFlipped;
+
+  const handleFlip = () => {
+    const nextFlipped = !isFlipped;
+    if (onFlip) {
+      onFlip(nextFlipped);
+    } else {
+      setLocalFlipped(nextFlipped);
+    }
+  };
 
   return (
     <div 
       className={cn("w-full h-64 perspective-1000 cursor-pointer", className)}
-      onClick={() => setIsFlipped(!isFlipped)}
+      onClick={handleFlip}
     >
       <motion.div
         className="w-full h-full relative preserve-3d"
