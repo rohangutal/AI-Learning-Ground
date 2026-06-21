@@ -1,0 +1,17 @@
+{
+  "name": "AI Study OS",
+  "short_name": "StudyOS",
+  "description": "An AI-powered learning OS for focused study workflows.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#6366f1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

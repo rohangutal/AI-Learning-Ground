@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+dist
+build
+.env*.local
+!.env.example
+*.tsbuildinfo
+scratch/
+migration_out.log
+vercel.json
+.vercel
