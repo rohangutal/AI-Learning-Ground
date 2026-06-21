@@ -39,6 +39,18 @@ export const FlashcardListSchema = z.object({
   flashcards: z.array(FlashcardItemSchema).describe("A list of high-quality active recall flashcards"),
 });
 
+export const QuizQuestionSchema = z.object({
+  question: z.string().describe("The multiple choice question text"),
+  options: z.array(z.string()).min(2).max(6).describe("List of options (usually 4) for the question"),
+  answer: z.string().describe("The exact correct option from the options list"),
+  explanation: z.string().describe("Brief explanation of why this option is correct"),
+});
+
+export const QuizSchema = z.object({
+  title: z.string().describe("A catchy, relevant title for the quiz"),
+  questions: z.array(QuizQuestionSchema).describe("List of multiple choice questions (usually 5-10)"),
+});
+
 // ==========================================
 // System Prompts & Prompt Templates
 // ==========================================
@@ -100,6 +112,13 @@ Your task is to generate high-yield, active-recall flashcards on a requested top
 Each flashcard must contain a front (a clear, concise question or term) and a back (a concise, accurate, and easy-to-understand explanation or answer).
 Avoid double-barreled questions. Keep cards focused on a single concept.
 `.trim(),
+
+  quizGenerator: `
+You are an expert academic tutor.
+Your task is to generate high-yield, multiple-choice quizzes on a requested topic or concept.
+Each question must have a clear question, a set of options, the exact correct answer (which MUST match one of the options exactly), and a helpful explanation of why it is correct.
+Ensure the questions test understanding of core concepts.
+`.trim(),
 };
 
 // ==========================================
@@ -149,5 +168,11 @@ ${context ? `Use the following context to enrich the explanation:\n${context}` :
   generateFlashcards: (topic: string, count = 5) => `
 Please generate ${count} high-yield flashcards for the topic: "${topic}".
 Ensure they are optimal for spaced repetition and active recall.
+`.trim(),
+
+  generateQuiz: (topic: string, count = 5, context?: string) => `
+Please generate a multiple-choice quiz with ${count} questions on the topic: "${topic}".
+${context ? `Use the following study note content as the source material for the questions:\n${context}` : ""}
+Make sure it tests critical concepts, is challenging yet fair, and provides clear explanations.
 `.trim(),
 };

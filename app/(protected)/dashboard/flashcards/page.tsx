@@ -31,17 +31,14 @@ import {
   Plus, 
   Trash2, 
   Layers, 
-  BookOpen, 
   RotateCcw, 
-  CheckCircle,
   Calendar,
-  Flame,
   Award,
   Search,
-  BookOpenCheck,
   CheckCircle2,
   AlertCircle
 } from "lucide-react";
+import { useAppStore } from "@/store/use-app-store";
 
 interface FlashcardType {
   id: string;
@@ -54,11 +51,19 @@ interface FlashcardType {
 }
 
 export default function FlashcardsPage() {
+  const { currentTopic, setCurrentTopic } = useAppStore();
   const [cards, setCards] = useState<FlashcardType[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [topic, setTopic] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Sync with global coordinated topic
+  useEffect(() => {
+    if (currentTopic) {
+      setTopic(currentTopic);
+    }
+  }, [currentTopic]);
   
   // Custom card form state
   const [customFront, setCustomFront] = useState("");
@@ -76,7 +81,7 @@ export default function FlashcardsPage() {
   // Navigation Filter
   const [activeTab, setActiveTab] = useState<"all" | "due" | "mastered">("all");
 
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   // Load cards from DB on mount
   const loadCards = async () => {
@@ -146,6 +151,7 @@ export default function FlashcardsPage() {
       })) as FlashcardType[];
       
       setCards(prev => [...formatted, ...prev]);
+      setCurrentTopic(topic.trim());
       setTopic("");
     } catch (err) {
       console.error("Failed to generate flashcards:", err);

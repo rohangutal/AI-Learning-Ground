@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { messages, rag = false }: { messages: any[]; rag?: boolean } = await req.json();
+  const { messages, rag = false, currentTopic }: { messages: { role: string; content: string }[]; rag?: boolean; currentTopic?: string } = await req.json();
 
   if (!messages || messages.length === 0) {
     return new Response("Bad Request: messages array is required", { status: 400 });
@@ -23,6 +23,11 @@ export async function POST(req: Request) {
 
   // Retrieve RAG context if requested and there is a query
   let systemMessage = "You are a helpful, extremely concise AI tutor for a university student. Explain complex concepts simply.";
+  
+  if (currentTopic) {
+    systemMessage += `\n\nThe student is currently studying the topic: "${currentTopic}". Focus your tutoring and explanations on this topic.`;
+  }
+
   const latestMessage = messages[messages.length - 1];
 
   if (rag && latestMessage && latestMessage.role === "user") {
@@ -38,16 +43,17 @@ export async function POST(req: Request) {
       messages,
       system: systemMessage,
       temperature: 0.5,
-      onFinish: async ({ usage }: { usage: any }) => {
+      onFinish: async ({ usage }: { usage: { inputTokens?: number; outputTokens?: number } }) => {
         const totalTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
         await logAIGeneration(user.id, "chat", totalTokens);
       },
     });
 
     return result.toTextStreamResponse();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Chat Route Error]", error);
-    return new Response(JSON.stringify({ error: error.message || "Failed to generate AI response" }), {
+    const errorMessage = error instanceof Error ? error.message : "Failed to generate AI response";
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

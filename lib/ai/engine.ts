@@ -1,5 +1,5 @@
 import { streamTextWithFallback, generateObjectWithFallback } from "./fallback";
-import { SYSTEM_PROMPTS, promptTemplates, FormulaExtractionSchema, TopicExplanationSchema, FlashcardListSchema } from "./prompts";
+import { SYSTEM_PROMPTS, promptTemplates, FormulaExtractionSchema, TopicExplanationSchema, FlashcardListSchema, QuizSchema } from "./prompts";
 import { db } from "../db";
 import { aiGenerations } from "../db/schema";
 import { z } from "zod";
@@ -40,13 +40,14 @@ interface NotesStreamOptions extends StreamOptions {
  * Stream structured Study Notes generation
  */
 export async function generateStudyNotesStream(sourceText: string, options: NotesStreamOptions) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { userId, onModelChange, ...generationOpts } = options;
   return streamTextWithFallback(
     {
       system: SYSTEM_PROMPTS.notesGenerator,
       prompt: promptTemplates.generateNotes(sourceText, generationOpts),
       temperature: 0.3,
-      onFinish: async ({ usage }: { usage: any }) => {
+      onFinish: async ({ usage }: { usage: { inputTokens?: number; outputTokens?: number } }) => {
         const totalTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
         await logAIGeneration(options.userId, "summary", totalTokens);
       },
@@ -66,7 +67,7 @@ export async function summarizeTextStream(sourceText: string, options: StreamOpt
       system: SYSTEM_PROMPTS.summarizer,
       prompt: promptTemplates.summarize(sourceText),
       temperature: 0.3,
-      onFinish: async ({ usage }: { usage: any }) => {
+      onFinish: async ({ usage }: { usage: { inputTokens?: number; outputTokens?: number } }) => {
         const totalTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
         await logAIGeneration(options.userId, "summary", totalTokens);
       },
@@ -86,7 +87,7 @@ export async function generateRevisionNotesStream(sourceText: string, options: S
       system: SYSTEM_PROMPTS.revisionNotes,
       prompt: promptTemplates.revisionNotes(sourceText),
       temperature: 0.4,
-      onFinish: async ({ usage }: { usage: any }) => {
+      onFinish: async ({ usage }: { usage: { inputTokens?: number; outputTokens?: number } }) => {
         const totalTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
         await logAIGeneration(options.userId, "flashcard", totalTokens);
       },
@@ -176,3 +177,32 @@ export async function generateFlashcards(
 
   return result.object.flashcards;
 }
+
+/**
+ * Generate structured multiple-choice quiz for a given topic
+ */
+export async function generateQuiz(
+  topic: string,
+  options: { userId: string; count?: number; context?: string; onModelChange?: (modelId: string) => void }
+) {
+  const count = options.count ?? 5;
+  const result = await generateObjectWithFallback<z.infer<typeof QuizSchema>>(
+    {
+      system: SYSTEM_PROMPTS.quizGenerator,
+      prompt: promptTemplates.generateQuiz(topic, count, options.context),
+      schema: QuizSchema,
+      temperature: 0.5,
+    },
+    {
+      onModelChange: options.onModelChange,
+    }
+  );
+
+  if (result.usage) {
+    const totalTokens = (result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0);
+    await logAIGeneration(options.userId, "quiz", totalTokens);
+  }
+
+  return result.object;
+}
+
