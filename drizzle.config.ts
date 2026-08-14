@@ -5,7 +5,7 @@ import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
 export default defineConfig({
-  schema: "./lib/db/schema.ts",
+  schema: "./src/lib/db/schema.ts",
   out: "./supabase/migrations",
   dialect: "postgresql",
   dbCredentials: {
