@@ -3,8 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { notes } from "@/lib/db/schema";
+import { ensureUserExists } from "@/lib/db/queries";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { unstable_noStore as noStore } from "next/cache";
 
 export async function getNotes() {
   const supabase = await createClient();
@@ -13,6 +15,8 @@ export async function getNotes() {
   if (!user) {
     throw new Error("Unauthorized");
   }
+
+  noStore();
 
   try {
     const dbNotes = await db
@@ -36,6 +40,8 @@ export async function getNoteById(id: string) {
     throw new Error("Unauthorized");
   }
 
+  noStore();
+
   try {
     const [note] = await db
       .select()
@@ -57,6 +63,10 @@ export async function createNoteAction(title: string, content: string, folderId?
     throw new Error("Unauthorized");
   }
 
+  await ensureUserExists(user);
+
+  const sanitizedFolderId = folderId && typeof folderId === "string" && folderId.trim() !== "" ? folderId.trim() : null;
+
   try {
     const [newNote] = await db
       .insert(notes)
@@ -64,7 +74,7 @@ export async function createNoteAction(title: string, content: string, folderId?
         userId: user.id,
         title: title || "Untitled Note",
         content: content || "",
-        folderId: folderId || null,
+        folderId: sanitizedFolderId,
       })
       .returning();
 

@@ -51,6 +51,43 @@ export const QuizSchema = z.object({
   questions: z.array(QuizQuestionSchema).describe("List of multiple choice questions (usually 5-10)"),
 });
 
+export const RoadmapMilestoneSchema = z.object({
+  id: z.string().describe("A unique slug/ID for this milestone (e.g. 'm1', 'phase-1')"),
+  title: z.string().describe("Title of this phase (e.g. 'Basic Git Syntax')"),
+  description: z.string().describe("Description of what this phase covers"),
+  duration: z.string().describe("Recommended time (e.g. '2 days', '1 week')"),
+  topics: z.array(z.string()).describe("Subtopics/concepts to learn in this phase"),
+  keyTerms: z.array(z.string()).describe("Important terms to memorize"),
+  resources: z.array(z.object({
+    name: z.string().describe("Name of the resource/concept"),
+    description: z.string().describe("Detailed strategy or sub-steps to study this concept")
+  })).describe("Study recommendations and guides")
+});
+
+export const RoadmapSchema = z.object({
+  title: z.string().describe("A descriptive, catchy title for this roadmap"),
+  description: z.string().describe("An encouraging overview of the roadmap path"),
+  milestones: z.array(RoadmapMilestoneSchema).describe("Sequential study path milestones")
+});
+
+export const CheatsheetItemSchema = z.object({
+  title: z.string().describe("Concept or action (e.g. 'Commit Changes')"),
+  syntax: z.string().describe("Actual code command, formula, or syntactical template (e.g. 'git commit -m \"message\"')"),
+  description: z.string().describe("Brief explanation of what it does"),
+  example: z.string().optional().describe("Example usage or sample output")
+});
+
+export const CheatsheetSectionSchema = z.object({
+  category: z.string().describe("Category/grouping name (e.g. 'Staging & Committing', 'React State Hook')"),
+  items: z.array(CheatsheetItemSchema)
+});
+
+export const CheatsheetSchema = z.object({
+  title: z.string().describe("A descriptive, catchy title for this cheatsheet"),
+  description: z.string().describe("Overview of the cheatsheet coverage"),
+  sections: z.array(CheatsheetSectionSchema)
+});
+
 // ==========================================
 // System Prompts & Prompt Templates
 // ==========================================
@@ -119,6 +156,20 @@ Your task is to generate high-yield, multiple-choice quizzes on a requested topi
 Each question must have a clear question, a set of options, the exact correct answer (which MUST match one of the options exactly), and a helpful explanation of why it is correct.
 Ensure the questions test understanding of core concepts.
 `.trim(),
+
+  roadmapGenerator: `
+You are a senior curriculum designer and educational architect.
+Your goal is to build an interactive, logically ordered learning roadmap for any topic, concept, or domain.
+Break the topic down into structured milestones/phases. Make it progressive, starting from foundational concepts and moving to advanced execution.
+Each milestone must have clear topics to learn, key terms to memorize, and study recommendations.
+`.trim(),
+
+  cheatsheetGenerator: `
+You are a world-class reference documentation writer.
+Your job is to generate a comprehensive, highly structured reference sheet (cheatsheet) for a specific topic, library, framework, or language.
+Group items logically into sections (categories).
+Ensure code snippets, syntax, formulas, or rules are practical, clean, and exact. Provide clear and concise examples.
+`.trim(),
 };
 
 // ==========================================
@@ -175,5 +226,28 @@ Ensure they are optimal for spaced repetition and active recall.
 Please generate a multiple-choice quiz with ${count} questions on the topic: "${topic}".
 ${context ? `Use the following study note content as the source material for the questions:\n${context}` : ""}
 Make sure it tests critical concepts, is challenging yet fair, and provides clear explanations.
+`.trim(),
+
+  generateRoadmap: (topic: string, targetLevel: string, duration: string) => `
+Please design a sequential, progressive study roadmap for the topic: "${topic}".
+Target Student Level: "${targetLevel}"
+Estimated duration: "${duration}"
+Break down the roadmap into logical, sequential milestones. For each milestone, provide:
+1. Title and concise description of the milestone goals.
+2. Estimated duration of that milestone.
+3. List of core subtopics to learn.
+4. Important terms/concepts to master.
+5. Actionable study recommendations and guidance on how to practice/understand them.
+`.trim(),
+
+  generateCheatsheet: (topic: string) => `
+Please create a high-yield, comprehensive reference cheatsheet for: "${topic}".
+Identify the most important syntax, commands, concepts, functions, or patterns.
+Group them into logical sections/categories (e.g. "Basic Commands", "Advanced Patterns", "Error Handling").
+Each item inside a section must have:
+- A descriptive title
+- The exact code/syntax/command (if code, keep it exact; if a concept, keep it concise)
+- A brief explanation
+- A practical, simple example of its usage
 `.trim(),
 };

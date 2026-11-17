@@ -1,8 +1,10 @@
-import { pgTable, text, timestamp, uuid, varchar, vector, integer, jsonb, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, varchar, vector, integer, jsonb, boolean, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const subscriptionTierEnum = pgEnum("subscription_tier", ["free", "pro"]);
 export const uploadTypeEnum = pgEnum("upload_type", ["pdf", "youtube", "image"]);
+export const studyDocumentTypeEnum = pgEnum("study_document_type", ["pdf", "docx", "pptx"]);
+export const studyDocumentStatusEnum = pgEnum("study_document_status", ["queued", "processing", "ready", "failed"]);
 export const promptTypeEnum = pgEnum("prompt_type", ["summary", "flashcard", "quiz", "chat"]);
 
 export const users = pgTable("users", {
@@ -56,6 +58,42 @@ export const uploads = pgTable("uploads", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+/** Private source files managed by the AI tutor document library. */
+export const studyDocuments = pgTable("study_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  filename: varchar("filename", { length: 255 }).notNull(),
+  storagePath: text("storage_path").notNull(),
+  mimeType: varchar("mime_type", { length: 127 }).notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  type: studyDocumentTypeEnum("type").notNull(),
+  status: studyDocumentStatusEnum("status").default("queued").notNull(),
+  processingError: text("processing_error"),
+  chunkCount: integer("chunk_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userCreatedIdx: index("study_documents_user_created_idx").on(table.userId, table.createdAt),
+  storagePathUnique: uniqueIndex("study_documents_storage_path_unique").on(table.storagePath),
+}));
+
+/** Extracted text chunks with source location and vector for grounded tutor answers. */
+export const studyDocumentChunks = pgTable("study_document_chunks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  documentId: uuid("document_id").references(() => studyDocuments.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  chunkIndex: integer("chunk_index").notNull(),
+  content: text("content").notNull(),
+  pageNumber: integer("page_number"),
+  slideNumber: integer("slide_number"),
+  section: varchar("section", { length: 255 }),
+  embedding: vector("embedding", { dimensions: 1536 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  documentChunkUnique: uniqueIndex("study_document_chunks_document_chunk_unique").on(table.documentId, table.chunkIndex),
+  userDocumentIdx: index("study_document_chunks_user_document_idx").on(table.userId, table.documentId),
+}));
+
 export const flashcards = pgTable("flashcards", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
@@ -108,11 +146,15 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   folders: many(folders),
   notes: many(notes),
   uploads: many(uploads),
+  studyDocuments: many(studyDocuments),
+  studyDocumentChunks: many(studyDocumentChunks),
   flashcards: many(flashcards),
   quizzes: many(quizzes),
   studySessions: many(studySessions),
   aiGenerations: many(aiGenerations),
   exams: many(exams),
+  roadmaps: many(roadmaps),
+  cheatsheets: many(cheatsheets),
 }));
 
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
@@ -153,6 +195,16 @@ export const uploadsRelations = relations(uploads, ({ one }) => ({
     fields: [uploads.noteId],
     references: [notes.id],
   }),
+}));
+
+export const studyDocumentsRelations = relations(studyDocuments, ({ one, many }) => ({
+  user: one(users, { fields: [studyDocuments.userId], references: [users.id] }),
+  chunks: many(studyDocumentChunks),
+}));
+
+export const studyDocumentChunksRelations = relations(studyDocumentChunks, ({ one }) => ({
+  document: one(studyDocuments, { fields: [studyDocumentChunks.documentId], references: [studyDocuments.id] }),
+  user: one(users, { fields: [studyDocumentChunks.userId], references: [users.id] }),
 }));
 
 export const flashcardsRelations = relations(flashcards, ({ one }) => ({
@@ -286,3 +338,41 @@ export const examAnalysisRelations = relations(examAnalysis, ({ one }) => ({
     references: [exams.id],
   }),
 }));
+
+export const roadmaps = pgTable("roadmaps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  targetLevel: varchar("target_level", { length: 50 }).notNull(), // 'Beginner' | 'Intermediate' | 'Advanced'
+  duration: varchar("duration", { length: 50 }).notNull(),
+  content: jsonb("content").notNull(),
+  progress: jsonb("progress").default([]).notNull(), // list of completed milestone sub-task IDs or slugs
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const cheatsheets = pgTable("cheatsheets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  content: jsonb("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const roadmapsRelations = relations(roadmaps, ({ one }) => ({
+  user: one(users, {
+    fields: [roadmaps.userId],
+    references: [users.id],
+  }),
+}));
+
+export const cheatsheetsRelations = relations(cheatsheets, ({ one }) => ({
+  user: one(users, {
+    fields: [cheatsheets.userId],
+    references: [users.id],
+  }),
+}));
+

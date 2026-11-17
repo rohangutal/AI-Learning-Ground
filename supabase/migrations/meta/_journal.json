@@ -15,6 +15,20 @@
       "when": 1786682913903,
       "tag": "0001_next_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787249599559,
+      "tag": "0002_overconfident_alex_wilder",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794927115930,
+      "tag": "0003_perpetual_hercules",
+      "breakpoints": true
     }
   ]
 }

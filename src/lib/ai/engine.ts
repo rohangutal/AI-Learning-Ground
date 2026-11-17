@@ -1,5 +1,5 @@
 import { streamTextWithFallback, generateObjectWithFallback } from "./fallback";
-import { SYSTEM_PROMPTS, promptTemplates, FormulaExtractionSchema, TopicExplanationSchema, FlashcardListSchema, QuizSchema } from "./prompts";
+import { SYSTEM_PROMPTS, promptTemplates, FormulaExtractionSchema, TopicExplanationSchema, FlashcardListSchema, QuizSchema, RoadmapSchema, CheatsheetSchema } from "./prompts";
 import { db } from "../db";
 import { aiGenerations } from "../db/schema";
 import { z } from "zod";
@@ -205,4 +205,61 @@ export async function generateQuiz(
 
   return result.object;
 }
+
+/**
+ * Generate structured Roadmap study path
+ */
+export async function generateRoadmapStructure(
+  topic: string,
+  targetLevel: string,
+  duration: string,
+  options: { userId: string; onModelChange?: (modelId: string) => void }
+) {
+  const result = await generateObjectWithFallback<z.infer<typeof RoadmapSchema>>(
+    {
+      system: SYSTEM_PROMPTS.roadmapGenerator,
+      prompt: promptTemplates.generateRoadmap(topic, targetLevel, duration),
+      schema: RoadmapSchema,
+      temperature: 0.5,
+    },
+    {
+      onModelChange: options.onModelChange,
+    }
+  );
+
+  if (result.usage) {
+    const totalTokens = (result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0);
+    await logAIGeneration(options.userId, "summary", totalTokens);
+  }
+
+  return result.object;
+}
+
+/**
+ * Generate structured reference Cheatsheet
+ */
+export async function generateCheatsheetStructure(
+  topic: string,
+  options: { userId: string; onModelChange?: (modelId: string) => void }
+) {
+  const result = await generateObjectWithFallback<z.infer<typeof CheatsheetSchema>>(
+    {
+      system: SYSTEM_PROMPTS.cheatsheetGenerator,
+      prompt: promptTemplates.generateCheatsheet(topic),
+      schema: CheatsheetSchema,
+      temperature: 0.4,
+    },
+    {
+      onModelChange: options.onModelChange,
+    }
+  );
+
+  if (result.usage) {
+    const totalTokens = (result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0);
+    await logAIGeneration(options.userId, "summary", totalTokens);
+  }
+
+  return result.object;
+}
+
 

@@ -3,8 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { flashcards, notes } from "@/lib/db/schema";
+import { ensureUserExists } from "@/lib/db/queries";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { unstable_noStore as noStore } from "next/cache";
 import { generateFlashcards as generateAI } from "@/lib/ai/engine";
 import { generateEmbedding } from "@/lib/ai/embeddings";
 
@@ -15,6 +17,8 @@ export async function getFlashcards() {
   if (!user) {
     throw new Error("Unauthorized");
   }
+
+  noStore();
 
   try {
     return await db
@@ -35,6 +39,8 @@ export async function generateFlashcardsAction(topic: string, count = 5) {
   if (!user) {
     throw new Error("Unauthorized");
   }
+
+  await ensureUserExists(user);
 
   // Generate cards via AI
   const generated = await generateAI(topic, { userId: user.id, count });

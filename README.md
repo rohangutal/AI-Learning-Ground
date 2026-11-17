@@ -79,6 +79,11 @@ npm run db:migrate
 ```
 This will apply the migrations located in `./supabase/migrations` using Drizzle Kit.
 
+### 5. Configure private tutor document storage
+In the Supabase SQL Editor, run the contents of `./supabase/storage-setup.sql`. This creates the private `tutor-documents` bucket and policies that limit each signed-in student to objects under their own user ID folder. The tutor upload endpoint rejects files larger than 15 MB and supports PDF, DOCX, and PPTX.
+
+Tutor extraction and embedding currently run synchronously in a Node.js route with a 60-second maximum duration. Files are capped at 300 indexed chunks; deployments that enforce a shorter function timeout should lower the upload/chunk limits or move ingestion to a background queue.
+
 ---
 
 ## Step 3: OpenRouter Setup

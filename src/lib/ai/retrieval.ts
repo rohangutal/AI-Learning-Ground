@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { notes, flashcards } from "../db/schema";
+import { notes, flashcards, studyDocumentChunks, studyDocuments } from "../db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { generateEmbedding } from "./embeddings";
 
@@ -15,6 +15,49 @@ export interface FlashcardSearchResult {
   front: string;
   back: string;
   similarity: number;
+}
+
+export interface StudyDocumentSearchResult {
+  id: string;
+  documentId: string;
+  filename: string;
+  content: string;
+  pageNumber: number | null;
+  slideNumber: number | null;
+  section: string | null;
+  similarity: number;
+}
+
+/** Search ready document chunks and always scope both chunks and parent files to the current user. */
+export async function findSimilarStudyDocumentChunks(
+  userId: string,
+  embedding: number[],
+  options: { limit?: number; documentId?: string } = {},
+): Promise<StudyDocumentSearchResult[]> {
+  const vectorStr = `[${embedding.join(",")}]`;
+  const filters = [
+    eq(studyDocumentChunks.userId, userId),
+    eq(studyDocuments.userId, userId),
+    eq(studyDocuments.status, "ready"),
+    sql`${studyDocumentChunks.embedding} IS NOT NULL`,
+  ];
+  if (options.documentId) filters.push(eq(studyDocuments.id, options.documentId));
+
+  const similaritySql = sql<number>`1 - (${studyDocumentChunks.embedding} <=> ${vectorStr})`;
+  return db.select({
+    id: studyDocumentChunks.id,
+    documentId: studyDocuments.id,
+    filename: studyDocuments.filename,
+    content: studyDocumentChunks.content,
+    pageNumber: studyDocumentChunks.pageNumber,
+    slideNumber: studyDocumentChunks.slideNumber,
+    section: studyDocumentChunks.section,
+    similarity: similaritySql,
+  }).from(studyDocumentChunks)
+    .innerJoin(studyDocuments, eq(studyDocumentChunks.documentId, studyDocuments.id))
+    .where(and(...filters))
+    .orderBy(sql`${studyDocumentChunks.embedding} <=> ${vectorStr}`)
+    .limit(options.limit ?? 6);
 }
 
 /**

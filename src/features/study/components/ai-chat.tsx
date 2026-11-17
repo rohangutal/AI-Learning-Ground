@@ -2,26 +2,25 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { Send, Bot, User, Sparkles, BookOpen } from "lucide-react";
+import { Send, Bot, User, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SlideUp } from "@/components/ui/animations";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/store/use-app-store";
 import { useEffect, useRef, useState } from "react";
+import { MarkdownRenderer } from "@/components/ui/markdown";
 
-export function AiChat() {
-  const { currentTopic } = useAppStore();
+export function AiChat({ selectedDocumentId, selectedDocumentName }: { selectedDocumentId: string | null; selectedDocumentName: string | null }) {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
-      body: {
+      body: () => ({
         rag: true,
-        currentTopic,
-      },
+        selectedDocumentId,
+      }),
     }),
   });
 
@@ -32,10 +31,6 @@ export function AiChat() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const triggerAction = (promptText: string) => {
-    setInput(promptText);
-  };
-
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -45,14 +40,10 @@ export function AiChat() {
 
   return (
     <div className="flex flex-col h-full min-h-[500px] border rounded-xl bg-card shadow-sm overflow-hidden">
-      {/* Topic banner */}
-      {currentTopic && (
-        <div className="bg-primary/5 border-b px-4 py-2.5 flex items-center justify-between text-xs text-primary font-medium">
-          <span className="flex items-center gap-1.5 truncate">
-            <BookOpen className="h-3.5 w-3.5" />
-            Focus Topic: <span className="font-bold underline truncate">{currentTopic}</span>
-          </span>
-          <span className="text-[10px] text-muted-foreground hidden sm:inline-block">Tutor is focused on this topic</span>
+      {selectedDocumentName && (
+        <div className="flex items-center gap-2 border-b bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
+          <FileText className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">Searching selected file: <strong className="font-medium text-foreground">{selectedDocumentName}</strong></span>
         </div>
       )}
 
@@ -65,38 +56,13 @@ export function AiChat() {
             </div>
             <div className="space-y-1 max-w-sm">
               <h3 className="font-semibold text-base">Your AI Study Partner</h3>
-              <p className="text-sm text-muted-foreground">
-                {currentTopic 
-                  ? `Ask me anything about "${currentTopic}", or get started with the quick actions below!`
-                  : "Ask questions, get summaries, or explain complex concepts from your study materials."}
-              </p>
+              <p className="text-sm text-muted-foreground">Ask a question about your uploaded material, or ask for a summary and explanation.</p>
             </div>
-
-            {/* Quick Actions based on topic */}
-            {currentTopic && (
-              <div className="flex flex-col sm:flex-row gap-2 mt-4 max-w-md w-full">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-xs justify-start h-9 w-full sm:w-auto" 
-                  onClick={() => triggerAction(`Explain the core concepts of "${currentTopic}" in simple, plain terms.`)}
-                >
-                  <Sparkles className="mr-2 h-3.5 w-3.5 text-primary" /> Explain simply
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-xs justify-start h-9 w-full sm:w-auto"
-                  onClick={() => triggerAction(`Give me a memorable real-world analogy for "${currentTopic}".`)}
-                >
-                  <Sparkles className="mr-2 h-3.5 w-3.5 text-primary" /> Show analogy
-                </Button>
-              </div>
-            )}
           </div>
         ) : (
-          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-          messages.map((msg: any, index: number) => (
+          messages.map((msg, index) => {
+            const messageText = msg.parts?.filter((part) => part.type === "text").map((part) => part.text).join("") ?? "";
+            return (
             <SlideUp key={msg.id || index} delay={0.05}>
               <div className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "")}>
                 <div className={cn(
@@ -106,20 +72,39 @@ export function AiChat() {
                   {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                 </div>
                 <div className={cn(
-                  "rounded-lg px-4 py-2.5 max-w-[85%] text-sm whitespace-pre-wrap leading-relaxed shadow-sm",
-                  msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                  "rounded-2xl px-4 py-3 max-w-[85%] text-sm leading-relaxed shadow-sm",
+                  msg.role === "user"
+                    ? "bg-primary text-primary-foreground rounded-tr-sm"
+                    : "bg-muted/50 border text-foreground rounded-tl-sm"
                 )}>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {msg.parts?.map((part: any, pIdx: number) => {
-                    if (part.type === "text") {
-                      return <span key={pIdx}>{part.text}</span>;
-                    }
-                    return null;
-                  })}
+                  {msg.role === "user" ? (
+                    <div className="whitespace-pre-wrap">{messageText}</div>
+                  ) : (
+                    <div className="prose dark:prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:p-0">
+                      <MarkdownRenderer content={messageText} />
+                    </div>
+                  )}
                 </div>
               </div>
             </SlideUp>
-          ))
+            );
+          })
+        )}
+
+        {isLoading && (
+          <div className="flex gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm border bg-muted text-foreground">
+              <Bot className="h-4 w-4" />
+            </div>
+            <div className="rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%] bg-muted/50 border text-muted-foreground flex items-center gap-1.5">
+              <span className="mr-1">{status === "submitted" ? "Searching your study materials…" : "Preparing your explanation…"}</span>
+              <span className="flex gap-1">
+                <span className="h-1.5 w-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="h-1.5 w-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="h-1.5 w-1.5 bg-primary/40 rounded-full animate-bounce"></span>
+              </span>
+            </div>
+          </div>
         )}
         <div ref={chatEndRef} />
       </div>
@@ -128,13 +113,13 @@ export function AiChat() {
       <div className="p-4 border-t bg-background">
         <form onSubmit={onSubmit} className="flex gap-2">
           <Input 
-            placeholder={currentTopic ? `Ask about "${currentTopic}"...` : "Ask your AI tutor..."} 
-            value={input}
+            placeholder={selectedDocumentName ? `Ask about ${selectedDocumentName}...` : "Ask your AI tutor..."}
+            value={input || ""}
             onChange={(e) => setInput(e.target.value)}
             disabled={isLoading}
             className="flex-1 rounded-full bg-muted/40 border-none focus-visible:ring-1 focus-visible:ring-primary/45 text-sm"
           />
-          <Button type="submit" size="icon" className="rounded-full shrink-0" disabled={isLoading || !input.trim()}>
+          <Button type="submit" size="icon" className="rounded-full shrink-0" disabled={isLoading || !input?.trim()}>
             <Send className="h-4 w-4" />
           </Button>
         </form>

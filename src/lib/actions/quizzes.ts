@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { quizzes, notes } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { unstable_noStore as noStore } from "next/cache";
 import { generateQuiz as generateAI } from "@/lib/ai/engine";
 
 export async function getQuizzes() {
@@ -14,6 +15,8 @@ export async function getQuizzes() {
   if (!user) {
     throw new Error("Unauthorized");
   }
+
+  noStore();
 
   const mockFallbackQuizzes = [
     {

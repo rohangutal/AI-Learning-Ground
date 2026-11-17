@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/ui/markdown";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { createNoteAction } from "@/lib/actions/notes";
+import { useAppStore } from "@/store/use-app-store";
 
 // Customization configs
 const styles = ["Bullet Notes", "Detailed Notes", "Exam Notes", "Revision Notes"];
@@ -42,8 +43,16 @@ interface HistoryRecord {
 }
 
 export default function AINotesGeneratorPage() {
+  const { currentTopic } = useAppStore();
   const [topic, setTopic] = useState("");
   const [sourceText, setSourceText] = useState("");
+
+  // Sync currentTopic to input so user can append to it
+  useEffect(() => {
+    if (currentTopic) {
+      setTopic(`Topic: ${currentTopic} `);
+    }
+  }, [currentTopic]);
   const [selectedStyle, setSelectedStyle] = useState("Detailed Notes");
   const [selectedDepth, setSelectedDepth] = useState("Intermediate");
   const [selectedTone, setSelectedTone] = useState("Academic");

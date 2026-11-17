@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { MarkdownRenderer } from "@/components/ui/markdown";
+import { Eye, Edit3 } from "lucide-react";
 
 interface EditorProps {
   initialTitle?: string;
@@ -14,6 +16,7 @@ export function Editor({ initialTitle = "", initialContent = "", onSave }: Edito
   const [content, setContent] = useState(initialContent);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
   const [lastSaved, setLastSaved] = useState({ title: initialTitle, content: initialContent });
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -60,7 +63,31 @@ export function Editor({ initialTitle = "", initialContent = "", onSave }: Edito
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-6 relative">
-      <div className="absolute top-4 right-6 text-xs text-muted-foreground font-medium flex items-center gap-1.5 select-none">
+      <div className="absolute top-4 right-6 text-xs font-medium flex items-center gap-4 select-none">
+        {/* Mode Toggle */}
+        <div className="flex bg-muted/50 rounded-lg p-1 border">
+          <button
+            onClick={() => setMode("edit")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors",
+              mode === "edit" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Edit3 className="h-3.5 w-3.5" /> Edit
+          </button>
+          <button
+            onClick={() => setMode("preview")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors",
+              mode === "preview" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Eye className="h-3.5 w-3.5" /> Preview
+          </button>
+        </div>
+
+        {/* Save Status */}
+        <div className="text-muted-foreground flex items-center gap-1.5">
         {saveStatus === "saved" && (
           <>
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -80,24 +107,34 @@ export function Editor({ initialTitle = "", initialContent = "", onSave }: Edito
           </>
         )}
       </div>
+      </div>
+
 
       <input
         type="text"
         placeholder="Untitled"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
+        readOnly={mode === "preview"}
         className="w-full bg-transparent text-4xl font-bold tracking-tight outline-none placeholder:text-muted-foreground/30 mb-8"
       />
-      <textarea
-        ref={textareaRef}
-        placeholder="Start writing your notes..."
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className={cn(
-          "w-full resize-none bg-transparent text-lg outline-none placeholder:text-muted-foreground/50",
-          "min-h-[500px] leading-relaxed"
-        )}
-      />
+
+      {mode === "edit" ? (
+        <textarea
+          ref={textareaRef}
+          placeholder="Start writing your notes..."
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          className={cn(
+            "w-full resize-none bg-transparent text-lg outline-none placeholder:text-muted-foreground/50",
+            "min-h-[500px] leading-relaxed"
+          )}
+        />
+      ) : (
+        <div className="min-h-[500px] prose dark:prose-invert max-w-none">
+          <MarkdownRenderer content={content || "*No content yet*"} />
+        </div>
+      )}
     </div>
   );
 }
